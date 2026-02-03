@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+.next/
+out/
+android/
+ios/
+**/*.min.js
+**/*.bundle.js
+**/*.docx

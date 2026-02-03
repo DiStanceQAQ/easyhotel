@@ -1,0 +1,79 @@
+# Node / package managers
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env*
+!.env.example
+
+# Build outputs
+dist/
+build/
+.turbo/
+.next/
+out/
+
+# Logs & diagnostics
+logs/
+*.log
+*.stackdump
+*.pid
+*.pid.lock
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.agents/
+.codex/
+.cursor/
+.claude/
+.opencode/
+.idea/
+.vscode/
+
+# React Native / mobile
+android/
+ios/
+*.iml
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.xcworkspace
+Pods/
+*.xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+*.lockd
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.tmproj
+*.project
+*.crash
+*.ipa
+*.app.dSYM.zip
+*.app.dSYM
+expo-output/
+
+# Web (Vite/React)
+*.local
+.parcel-cache
+.cache/
+
+# NestJS
+coverage/
+
+# Prisma
+prisma/migrations/
+*.db
+
+# Static uploads (generated at runtime)
+uploads/
+public/uploads/

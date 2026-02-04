@@ -21,5 +21,13 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "src/auth/**",
+    "src/app.controller.ts",
+    "src/app.service.ts"
+  ]
 }

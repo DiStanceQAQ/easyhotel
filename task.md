@@ -22,7 +22,7 @@
 
 **内容**
 
-- 建立 mono-repo（当前结构）：`service/`、`web/`、`app/`（可选 `packages/shared/`）
+- 建立 mono-repo：`service/`、`web/`、`app/`
 - 统一 Node 版本（.nvmrc）与包管理（npm）
 - 增加基础脚本：`lint`、`test`、`test:e2e`、`format`、`dev`、`build`
 
@@ -42,7 +42,7 @@
 **内容**
 
 - ESLint + Prettier（api/web/rn 统一规则）
-- commitlint + husky（可选）
+- commitlint + husky
 - 环境变量模板：`.env.example`（API 的 DB/JWT/UPLOAD 等）
 
 **AC**
@@ -67,7 +67,7 @@
 - 创建 `service/` Nest 项目
 - 配置 `ConfigModule`（dotenv）
 - 全局 `ValidationPipe`（DTO 校验）
-- 统一响应封装（建议：Interceptor）`{code,message,data}`
+- 统一响应封装{code,message,data}`
 - 全局异常过滤（ExceptionFilter）：把 HttpException 统一映射到业务 code
 
 **AC**
@@ -75,7 +75,7 @@
 - `GET /health` 返回统一结构（code=0）
 - 传入非法 DTO 参数时返回 40000 格式错误
 
-**UT（必须）**
+**UT**
 
 - `ResponseInterceptor`：输入 data -> 输出统一结构（快照测试）
 - `HttpExceptionFilter`：401/403/409/400 映射正确
@@ -87,7 +87,7 @@
 **内容**
 
 - Prisma 初始化（schema.prisma）并连 PostgreSQL
-- 建立核心表（最小集）：users、merchant_profile、room_price_calendar、hotels、hotel_images、room_types、tags、hotel_tags、banners、hotel_audit_logs（可选）
+- 建立核心表：users、merchant_profile、room_price_calendar、hotels、hotel_images、room_types、tags、hotel_tags、banners、hotel_audit_logs
 - `PrismaService` 封装 + 生命周期钩子
 - 种子数据（seed）：管理员/商户账号、1-2 家酒店、房型、banner、标签等
 
@@ -97,7 +97,7 @@
 - `npm run db:seed` 可生成可用演示数据
 - App 列表接口能看到 seed 酒店（后续接口完成后验证）
 
-**UT（必须）**
+**UT**
 
 - PrismaService 初始化测试（mock prisma client，验证 onModuleInit 被调用）
 - Seed 脚本（可选 UT）：在测试库插入后 count 符合预期

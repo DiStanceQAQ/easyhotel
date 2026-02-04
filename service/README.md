@@ -1,98 +1,172 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+﻿# EasyHotel Service（NestJS）
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+本目录是后端服务端代码，技术栈：NestJS + Prisma + PostgreSQL。
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 目录结构
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+service/
+  src/
+    common/
+      decorators/
+        current-user.decorator.ts
+        roles.decorator.ts
+        current-user.decorator.spec.ts
+      guards/
+        roles.guard.ts
+        roles.guard.spec.ts
+    modules/
+      app/
+        app.module.ts
+        app.controller.ts
+        app.service.ts
+      auth/
+        auth.module.ts
+        auth.controller.ts
+        auth.service.ts
+        auth.service.spec.ts
+        dto/
+          login.dto.ts
+          register.dto.ts
+        guards/
+          jwt-auth.guard.ts
+        strategies/
+          jwt.strategy.ts
+          jwt.strategy.spec.ts
+        types/
+          auth-user.ts
+          jwt-payload.ts
+    prisma/
+      prisma.service.ts
+      prisma.module.ts
+    app.module.ts
+    main.ts
+    app.controller.spec.ts
+    database.provider.ts
+  prisma/
+    schema.prisma
+    migrations/
+    seed.ts
+  test/
+    app.e2e-spec.ts
+    jest-e2e.json
+  uploads/              # 运行时生成（本地静态资源）
+  dist/                 # 构建产物（可删除，构建会重新生成）
+  package.json
+  nest-cli.json
+  tsconfig.json
+  tsconfig.build.json
+  eslint.config.mjs
+  .prettierrc
+  .gitignore
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## 各目录/文件职责
 
-# watch mode
-$ npm run start:dev
+### `src/main.ts`
 
-# production mode
-$ npm run start:prod
+应用入口：创建 Nest 应用、配置 CORS/静态资源、全局 ValidationPipe，启动端口。
+
+### `src/app.module.ts`
+
+根模块：聚合各功能模块（`AppApiModule`、`AuthModule`）以及全局 provider。
+
+### `src/common/`
+
+放置跨模块复用的横切能力：
+
+- `decorators/`：`@CurrentUser`、`@Roles`
+- `guards/`：`RolesGuard`
+
+### `src/modules/app/`
+
+示例功能模块（当前包含 `/api/hello`）。
+
+- `app.module.ts`：模块定义
+- `app.controller.ts`：路由控制器
+- `app.service.ts`：业务服务
+
+### `src/modules/auth/`
+
+鉴权模块：注册/登录/当前用户 + JWT。
+
+- `auth.controller.ts`：`/auth/register`、`/auth/login`、`/me`
+- `auth.service.ts`：注册/登录逻辑、密码加密、JWT 签发
+- `dto/`：请求校验
+- `guards/`：JWT 守卫
+- `strategies/`：JWT 解析策略
+- `types/`：Auth 类型
+
+### `src/prisma/`
+
+- `prisma.service.ts`：PrismaClient 封装（连接/断开）。
+- `prisma.module.ts`：封装并导出 PrismaService，供各功能模块复用。
+
+### `prisma/`
+
+- `schema.prisma`：数据库模型
+- `migrations/`：迁移历史
+- `seed.ts`：演示/初始数据种子
+
+### `test/`
+
+E2E 测试相关配置与用例。
+
+---
+
+## 推荐目录结构
+
+建议按“功能模块 + common 横切能力”组织：
+
+```
+src/
+  common/
+    decorators/
+    guards/
+    filters/
+    interceptors/
+  modules/
+    app/          # 用户端只读 API（/app/*）
+      banners/
+      hotels/
+      rooms/
+    admin/        # 管理端 API（/admin/*）
+      hotels/
+      review/
+      rooms/
+    auth/
+    upload/
+  prisma/
+    prisma.module.ts
+    prisma.service.ts
+  app.module.ts
+  main.ts
 ```
 
-## Run tests
+说明：
+- `common/filters` 与 `common/interceptors` 用于统一错误码和响应结构。
+- 每个功能域一个模块（避免按“controller/service”横切拆分）。
 
-```bash
-# unit tests
-$ npm run test
+---
 
-# e2e tests
-$ npm run test:e2e
+## 常用命令
 
-# test coverage
-$ npm run test:cov
 ```
+# 根目录统一安装
+npm install
 
-## Deployment
+# 启动服务
+npm run start:dev --workspace service
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+# 测试
+npm run test --workspace service
+npm run test:e2e --workspace service
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Prisma
+npm run prisma:migrate --workspace service
+npm run db:seed --workspace service
 ```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

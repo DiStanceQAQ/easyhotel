@@ -251,33 +251,246 @@
 
 ---
 
-## 5. 商户端 API（/admin/* MERCHANT）（Day 3–4）
+## 5. 商户端 API（/api/merchant/* MERCHANT）（Day 3–4）
 
-### T5.1 商户创建酒店草稿（Owner：B）
+### T5.1 完善/修改商户资料（Owner：B）
 
-**接口**：`POST /admin/hotels`（MERCHANT）**内容**
+**接口**：`POST /api/merchant/profile`（MERCHANT）
 
-- 创建 hotels：auditStatus=DRAFT、publishStatus=OFFLINE，merchantId=当前用户
-- 最小字段允许：nameCn/city
+**内容**
+
+- Upsert 操作：merchantName、contactName、contactPhone
+- 商户可多次修改自己的企业信息
 
 **AC**
 
-- 返回 hotelId 与状态
-- ADMIN 访问此接口被拒绝（按规则）
+- 首次填写创建商户资料
+- 再次调用更新已有资料
+- ADMIN 角色访问被拒（40300）
 
 **UT（必须）**
 
-- merchantId 写入正确，默认状态正确
+- Upsert 逻辑：不存在时创建，存在时更新
+- merchantId 从 req.user 正确提取
 
 ---
 
-### T5.2 商户编辑酒店（Owner：B）
+### T5.2 商户创建酒店草稿（Owner：B）
 
-**接口**：`PUT /admin/hotels/:id`（MERCHANT）**内容**
+**接口**：`POST /api/merchant/hotels`（MERCHANT）
 
-- 仅允许编辑：DRAFT/REJECTED（PENDING 禁止）
-- 仅允许编辑自己名下酒店
-- 支持更新：中/英名、地址、星级、开业时间、facilities、tags、coverImage、description
+**内容**
+
+- 创建 hotels：auditStatus=DRAFT、publishStatus=OFFLINE，merchantId=当前用户
+- 最小字段：nameCn（必填）
+
+**AC**
+
+- 返回新创建的 hotelId
+- 前端拿到后跳转到编辑页
+
+**UT（必须）**
+
+- merchantId 写入正确，默认状态为 DRAFT
+
+---
+
+### T5.3 商户获取酒店列表（Owner：B）
+
+**接口**：`GET /api/merchant/hotels`（MERCHANT）
+
+**内容**
+
+- 分页获取当前商户名下的酒店列表（全状态）
+- 支持筛选：name（模糊搜索）、auditStatus
+- 返回字段包含 rejectReason（仅 REJECTED 时有值）
+
+**AC**
+
+- 只返回自己的酒店（merchantId 过滤）
+- 分页正确（page/pageSize）
+- REJECTED 酒店显示驳回原因
+
+**UT（必须）**
+
+- where 条件包含 merchantId
+- auditStatus 过滤正确
+- 模糊搜索测试
+
+---
+
+### T5.4 商户获取酒店详情（编辑回显）（Owner：B）
+
+**接口**：`GET /api/merchant/hotels/:id`（MERCHANT）
+
+**内容**
+
+- 获取指定酒店的完整信息用于编辑页面回显
+- 返回：基础信息 + facilities（JSONB）+ tagIds 数组 + images（按 sortOrder）+ auditStatus + rejectReason
+
+**AC**
+
+- 只能查看自己的酒店（merchantId 校验）
+- images 按 sortOrder 升序
+- facilities 返回对象格式
+
+**UT（必须）**
+
+- merchantId 不匹配 -> 40300
+- images sortOrder 正确
+
+---
+
+### T5.5 商户更新酒店信息（保存草稿）（Owner：B）
+
+**接口**：`PUT /api/merchant/hotels/:id`（MERCHANT）
+
+**内容**
+
+- 保存酒店基础信息、描述、设施和标签，不改变审核状态
+- 仅允许编辑：DRAFT/REJECTED（PENDING 时禁止编辑）
+- 支持更新：nameCn、nameEn、city、address、star、openedAt、lat、lng、description、facilities（JSONB）、tagIds（数组）
+
+**AC**
+
+- 编辑 PENDING 状态酒店返回 40900
+- 编辑非自己酒店返回 40300
+- 更新成功后 updatedAt 变化
+
+**UT（必须）**
+
+- PENDING -> ConflictException
+- merchantId 不一致 -> ForbiddenException
+- facilities 和 tagIds 更新正确
+
+---
+
+### T5.6 商户管理酒店图片（批量保存）（Owner：B）
+
+**接口**：`POST /api/merchant/hotels/:id/images`（MERCHANT）
+
+**内容**
+
+- 保存前端拖拽排序后的完整图片列表
+- 请求 Body：图片对象数组 `[{url, sortOrder}]`
+- sortOrder=0 的为封面图
+
+**AC**
+
+- 图片按 sortOrder 排序
+- 批量替换旧图片列表
+
+**UT（必须）**
+
+- 图片排序逻辑正确
+- 批量删除旧图 + 插入新图
+
+---
+
+### T5.7 商户提交酒店审核（Owner：B）
+
+**接口**：`POST /api/merchant/hotels/:id/submit`（MERCHANT）
+
+**内容**
+
+- DRAFT/REJECTED -> PENDING
+- 提交前校验必填字段：nameCn/city/address/star + 至少 1 张图片
+
+**AC**
+
+- 缺字段返回 40000 并明确缺哪些
+- 成功后 auditStatus=PENDING
+- 提交后禁止继续编辑
+
+**UT（必须）**
+
+- validateHotelBeforeSubmit：缺字段测试
+- 状态变更正确
+
+---
+
+### T5.8 商户获取某酒店房型列表（Owner：B）
+
+**接口**：`GET /api/merchant/hotels/:hotelId/rooms`（MERCHANT）
+
+**内容**
+
+- 获取指定酒店下的所有房型（包含上架和下架）
+- 返回字段：id、name、coverImage、basePrice、maxGuests、breakfast、refundable、status、stockMgtType、totalStock
+
+**AC**
+
+- 只能查看自己酒店的房型
+- 返回全部房型（不过滤 status）
+
+**UT（必须）**
+
+- merchantId 校验
+- 房型列表查询正确
+
+---
+
+### T5.9 商户创建房型（Owner：B）
+
+**接口**：`POST /api/merchant/rooms`（MERCHANT）
+
+**内容**
+
+- 在指定酒店下创建新房型
+- 必填：hotelId、name、basePrice、maxGuests、breakfast、refundable、status、stockMgtType
+- 选填：coverImage、areaM2、totalStock
+
+**AC**
+
+- 只能为自己的酒店创建房型
+- stockMgtType=1 时 totalStock 必填
+
+**UT（必须）**
+
+- hotelId 归属校验
+- stockMgtType 与 totalStock 联合校验
+
+---
+
+### T5.10 商户更新房型（Owner：B）
+
+**接口**：`PUT /api/merchant/rooms/:id`（MERCHANT）
+
+**内容**
+
+- 更新指定房型信息（不包含 hotelId）
+- 支持更新所有字段（除 hotelId）
+
+**AC**
+
+- 只能更新自己酒店的房型
+- 更新成功
+
+**UT（必须）**
+
+- 归属校验
+- 更新参数正确传递
+
+---
+
+### T5.11 商户修改房型售卖状态（Owner：B）
+
+**接口**：`PATCH /api/merchant/rooms/:id/status`（MERCHANT）
+
+**内容**
+
+- 快速切换房型上架/下架状态
+- Body：`{status: 0|1}`
+
+**AC**
+
+- status 更新正确
+- 只能操作自己酒店的房型
+
+**UT（必须）**
+
+- status 值校验（0 或 1）
+- 归属校验
 
 **AC**
 
@@ -477,42 +690,90 @@
 
 ---
 
-## 7. 上传模块
+## 7. 公共数据与上传模块（/api/common/*）（Day 3–4）
 
-### T7.1 UploadModule（Owner：B）
+### T7.1 获取所有标签列表（Owner：A）
+
+**接口**：`GET /api/common/tags`（ALL）
 
 **内容**
 
-- `POST /upload`（JWT）使用 multer 接收文件
-- 保存到 `uploads/`，返回 URL `/static/<file>`
+- 获取系统预设的所有标签字典
+- 供前端（如编辑酒店页）展示复选框选项
+
+**AC**
+
+- 返回所有标签数组：`[{id, name}]`
+- 需要 Token（所有角色均可访问）
+
+**UT（必须）**
+
+- 查询所有标签正确
+- 返回格式验证
+
+---
+
+### T7.2 通用文件上传（Owner：B）
+
+**接口**：`POST /api/common/upload`（ALL）
+
+**内容**
+
+- 核心文件上传接口，接收 multipart/form-data 格式的文件流
+- 使用 multer 接收文件
+- 保存到 `uploads/`，返回可访问的 URL：`/static/<file>`
 - 限制：类型 jpg/png/webp；大小限制（如 2MB）
 
 **AC**
 
-- 上传成功返回 URL，可直接访问
+- 上传成功返回 `{url: "https://..."}`
 - 非法类型/过大返回 40000
+- 可直接访问返回的 URL
 
 **UT（必须）**
 
 - 文件类型白名单校验函数（纯函数单测）
 - size limit（可用 mock）
+- 文件保存路径正确
 
 ---
 
 ## 8. Web 管理端（React + Vite + Antd）（Day 5–6）
 
-### T8.1 登录/注册页（Owner：B）
+### T8.1 路由与布局（Owner：B）
 
 **内容**
 
-- 登录：拿 token 存储（localStorage）
-- 注册：选择角色（商户/管理员）
-- axios 拦截器：自动带 Authorization
+- React Router 配置：`/login`、`/register`、`/merchant/*`、`/admin/*`
+- 根据用户角色（MERCHANT/ADMIN）自动路由到对应模块
+- 公共布局：Header（显示用户名、退出）+ Sider（菜单）+ Content
 
 **AC**
 
-- 登录成功跳转对应角色首页
-- 登录失败提示 message
+- 未登录访问保护路由自动跳转 /login
+- 登录后根据角色跳转到对应首页
+- MERCHANT 不能访问 /admin 路由，反之亦然
+
+**UT（建议）**
+
+- 路由守卫逻辑测试
+- 角色权限判断
+
+---
+
+### T8.2 登录/注册页（Owner：B）
+
+**内容**
+
+- 登录页：输入 username/password，获取 token 存储到 localStorage
+- 注册页：输入 username/password，选择角色（MERCHANT/ADMIN）
+- axios 拦截器：请求自动带 Authorization header
+
+**AC**
+
+- 登录成功跳转对应角色首页（MERCHANT -> /merchant，ADMIN -> /admin）
+- 登录失败显示错误提示
+- Token 过期自动跳转登录页
 
 **UT（必须）**
 
@@ -521,18 +782,66 @@
 
 ---
 
-### T8.2 商户：酒店编辑页（Owner：B）
+### T8.3 商户：完善资料页（Owner：B）
 
 **内容**
 
-- 表单：基础信息 + 标签/设施 + 图片 + 房型 CRUD
-- 保存草稿、提交审核按钮（状态不同按钮不同）
+- 表单：merchantName、contactName、contactPhone
+- 首次登录引导填写
+- 支持后续修改
+
+**AC**
+
+- 提交成功后保存资料
+- 刷新后显示已填写内容
+
+**UT（建议）**
+
+- 表单必填校验
+
+---
+
+### T8.4 商户：酒店列表页（Owner：B）
+
+**内容**
+
+- 列表展示：酒店名称、城市、星级、审核状态、发布状态
+- 支持筛选：name（搜索）、auditStatus
+- 支持分页
+- 操作按钮：新建酒店、编辑、查看详情
+- REJECTED 状态显示驳回原因
+
+**AC**
+
+- 分页正确
+- 筛选生效
+- 新建酒店跳转到编辑页
+
+**UT（建议）**
+
+- 列表渲染测试
+- 筛选参数构建
+
+---
+
+### T8.5 商户：酒店编辑页（Owner：B）
+
+**内容**
+
+- 表单：基础信息（nameCn、nameEn、city、address、star、openedAt、lat、lng、description）
+- 设施选择（facilities 对象）
+- 标签多选（从标签列表 API 获取）
+- 图片管理：上传、拖拽排序、删除
+- 房型 CRUD：表格展示、新增/编辑/删除房型
+- 按钮：保存草稿、提交审核（DRAFT/REJECTED 可编辑，PENDING 只读）
 - 展示 rejectReason（若 REJECTED）
 
 **AC**
 
-- DRAFT/REJECTED 可编辑；PENDING 只读
+- DRAFT/REJECTED 可编辑；PENDING 只读不可提交
 - 保存后刷新仍显示最新数据
+- 图片拖拽排序生效
+- 提交审核前校验必填字段
 
 **UT（建议）**
 
@@ -541,23 +850,104 @@
 
 ---
 
-### T8.3 管理员：审核/上下线页（Owner：B）
+### T8.6 管理员：审核列表页（Owner：B）
 
 **内容**
 
-- 列表：按状态筛选 + 关键字搜索 + 分页
-- 详情抽屉：查看酒店+房型+图片
-- 操作：通过/驳回（必填原因）/上线/下线
+- 列表：酒店名称、城市、商户名、审核状态、发布状态
+- 支持筛选：city、auditStatus（默认 PENDING）
+- 支持分页
+- 操作：查看详情、审核（通过/驳回）
 
 **AC**
 
-- 通过/驳回后列表状态刷新
-- 下线后用户端不再可见
+- 默认显示待审核（PENDING）酒店
+- 筛选生效
+- 点击审核打开详情抽屉
+
+**UT（建议）**
+
+- 列表筛选参数拼接
+- 默认 auditStatus=PENDING
+
+---
+
+### T8.7 管理员：审核详情抽屉（Owner：B）
+
+**内容**
+
+- 详情展示：酒店完整信息（基础信息、图片、设施、标签、房型）
+- 操作按钮：通过、驳回（必填原因）
+- 驳回弹窗：输入驳回原因（必填）
+
+**AC**
+
+- 通过后状态变为 APPROVED
+- 驳回时原因必填，否则不允许提交
+- 操作成功后列表刷新
 
 **UT（建议）**
 
 - 驳回弹窗：原因必填校验
-- 列表筛选参数拼接正确（单测）
+
+---
+
+### T8.8 管理员：发布管理页（Owner：B）
+
+**内容**
+
+- 列表：已审核通过的酒店
+- 支持筛选：publishStatus（ONLINE/OFFLINE）
+- 操作：上线、下线
+
+**AC**
+
+- 上线后用户端可见
+- 下线后用户端不可见
+- 操作成功后列表刷新
+
+**UT（建议）**
+
+- 操作按钮根据状态显示不同文案
+
+---
+
+### T8.9 管理员：Banner 管理页（Owner：B）
+
+**内容**
+
+- 列表：Banner 标题、关联酒店、排序值、启用状态
+- 操作：新建、编辑、删除
+- 新建/编辑弹窗：选择酒店（从候选列表）、上传图片、设置排序、启用状态
+
+**AC**
+
+- Banner 按 sortOrder 排序显示
+- 酒店选择仅显示已审核通过且在线的酒店
+- 删除需二次确认
+
+**UT（建议）**
+
+- 酒店选择器数据过滤正确
+
+---
+
+### T8.10 管理员：标签管理页（Owner：B）
+
+**内容**
+
+- 列表：标签名称
+- 操作：新建标签、删除标签
+- 删除前校验是否有酒店使用
+
+**AC**
+
+- 创建成功后列表刷新
+- 有酒店使用的标签不可删除，提示错误
+
+**UT（建议）**
+
+- 删除确认逻辑
 
 ---
 

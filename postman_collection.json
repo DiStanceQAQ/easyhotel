@@ -1,0 +1,710 @@
+{
+  "info": {
+    "name": "易宿酒店预订平台 API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "merchantToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "hotelId", "value": "" },
+    { "key": "roomId", "value": "" },
+    { "key": "bannerId", "value": "" },
+    { "key": "tagId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth & User",
+      "item": [
+        {
+          "name": "注册",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"merchant_new_001\",\n  \"password\": \"MyPassword!123\",\n  \"role\": \"MERCHANT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "登录（商户）",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"merchant1\",\n  \"password\": \"merchant123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.code === 0 && jsonData.data && jsonData.data.token) {",
+                  "    pm.environment.set(\"merchantToken\", jsonData.data.token);",
+                  "    pm.environment.set(\"token\", jsonData.data.token);",
+                  "    console.log(\"✓ 商户Token已保存: \" + jsonData.data.token.substring(0, 20) + \"...\");",
+                  "} else {",
+                  "    console.log(\"✗ Token提取失败: \" + JSON.stringify(jsonData));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "登录（管理员）",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin2\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.code === 0 && jsonData.data && jsonData.data.token) {",
+                  "    pm.environment.set(\"adminToken\", jsonData.data.token);",
+                  "    pm.environment.set(\"token\", jsonData.data.token);",
+                  "    console.log(\"✓ 管理员Token已保存: \" + jsonData.data.token.substring(0, 20) + \"...\");",
+                  "} else {",
+                  "    console.log(\"✗ Token提取失败: \" + JSON.stringify(jsonData));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "获取当前用户",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log(\"📋 当前请求信息:\");",
+                  "console.log(\"URL: \" + pm.request.url);",
+                  "console.log(\"Authorization Header: \" + pm.request.headers.get('Authorization'));",
+                  "console.log(\"merchantToken值: \" + pm.environment.get('merchantToken'));",
+                  "console.log(\"baseUrl值: \" + pm.environment.get('baseUrl'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "console.log(\"响应状态码: \" + pm.response.code);",
+                  "console.log(\"响应体: \" + pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "完善/修改商户资料",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantName\": \"易宿商旅集团\",\n  \"contactName\": \"张三\",\n  \"contactPhone\": \"13800138000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Common Data",
+      "item": [
+        {
+          "name": "获取所有标签",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/common/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "common", "tags"]
+            }
+          }
+        },
+        {
+          "name": "通用文件上传",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/common/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "common", "upload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Merchant Hotel",
+      "item": [
+        {
+          "name": "获取我的酒店列表",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "创建酒店(草稿)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameCn\": \"易宿精选酒店(待编辑店)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log(\"[创建酒店] 当前环境变量:\");",
+                  "console.log(\"  baseUrl: \" + pm.environment.get(\"baseUrl\"));",
+                  "console.log(\"  merchantToken: \" + (pm.environment.get(\"merchantToken\") ? \"✓ 已设置\" : \"✗ 未设置\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "console.log(\"[创建酒店] 响应体: \" + JSON.stringify(jsonData));",
+                  "if (jsonData.code === 0 && jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set(\"hotelId\", jsonData.data.id);",
+                  "    console.log(\"✓ hotelId已保存: \" + jsonData.data.id);",
+                  "} else {",
+                  "    console.log(\"✗ hotelId提取失败，响应不符合预期\");",
+                  "    console.log(\"  需要: jsonData.code === 0 && jsonData.data && jsonData.data.id\");",
+                  "    console.log(\"  实际: \" + JSON.stringify(jsonData));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "获取酒店详情",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels", "{{hotelId}}"]
+            }
+          }
+        },
+        {
+          "name": "更新酒店信息",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameCn\": \"易宿酒店(深圳南山店)\",\n  \"city\": \"深圳\",\n  \"address\": \"南山区粤海街道科技南十二路88号\",\n  \"star\": 5,\n  \"description\": \"<p>示例描述</p>\",\n  \"facilities\": {\n    \"wifi\": true,\n    \"parking\": true\n  },\n  \"tagIds\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels", "{{hotelId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "var hotelId = pm.environment.get(\"hotelId\");",
+                  "console.log(\"[更新酒店] 当前环境变量:\");",
+                  "console.log(\"  baseUrl: \" + pm.environment.get(\"baseUrl\"));",
+                  "console.log(\"  merchantToken: \" + (pm.environment.get(\"merchantToken\") ? \"✓ 已设置\" : \"✗ 未设置\"));",
+                  "console.log(\"  hotelId: \" + (hotelId ? \"✓ \" + hotelId : \"✗ 未设置\"));",
+                  "if (!hotelId) {",
+                  "  console.log(\"\\n⚠️  WARNING: hotelId 为空!\");",
+                  "  console.log(\"  请先执行 '创建酒店(草稿)' 请求来获取 hotelId\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "管理酒店图片",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"url\": \"https://oss.../cover.jpg\", \"sortOrder\": 0 },\n  { \"url\": \"https://oss.../lobby.jpg\", \"sortOrder\": 1 }\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels/{{hotelId}}/images",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels", "{{hotelId}}", "images"]
+            }
+          }
+        },
+        {
+          "name": "提交酒店审核",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels/{{hotelId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels", "{{hotelId}}", "submit"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Merchant Room",
+      "item": [
+        {
+          "name": "获取房型列表",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/hotels/{{hotelId}}/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "hotels", "{{hotelId}}", "rooms"]
+            }
+          }
+        },
+        {
+          "name": "创建房型",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hotelId\": \"{{hotelId}}\",\n  \"name\": \"标准大床房\",\n  \"basePrice\": 380,\n  \"maxGuests\": 2,\n  \"breakfast\": false,\n  \"refundable\": true,\n  \"status\": 1,\n  \"stockMgtType\": 1,\n  \"totalStock\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "rooms"]
+            }
+          }
+        },
+        {
+          "name": "更新房型",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"标准大床房(升级)\",\n  \"basePrice\": 420,\n  \"maxGuests\": 2,\n  \"breakfast\": true,\n  \"refundable\": true,\n  \"status\": 1,\n  \"stockMgtType\": 1,\n  \"totalStock\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "rooms", "{{roomId}}"]
+            }
+          }
+        },
+        {
+          "name": "修改房型售卖状态",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{merchantToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/merchant/rooms/{{roomId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "merchant", "rooms", "{{roomId}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Audit",
+      "item": [
+        {
+          "name": "获取审核列表",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/hotels/audit?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "hotels", "audit"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "获取审核详情",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/hotels/{{hotelId}}/audit-detail",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "hotels", "{{hotelId}}", "audit-detail"]
+            }
+          }
+        },
+        {
+          "name": "提交审核结果",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"reason\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/hotels/{{hotelId}}/audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "hotels", "{{hotelId}}", "audit"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Publish",
+      "item": [
+        {
+          "name": "获取发布列表",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/hotels/publish?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "hotels", "publish"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "修改发布状态",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OFFLINE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/hotels/{{hotelId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "hotels", "{{hotelId}}", "publish"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Operation",
+      "item": [
+        {
+          "name": "获取 Banner 候选酒店",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/banners/candidate-hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "banners", "candidate-hotels"]
+            }
+          }
+        },
+        {
+          "name": "获取 Banner 列表",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/banners",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "banners"]
+            }
+          }
+        },
+        {
+          "name": "创建 Banner",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"夏日海边特惠\",\n  \"imageUrl\": \"https://oss.../banner_summer.jpg\",\n  \"hotelId\": \"{{hotelId}}\",\n  \"sortOrder\": 1,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/banners",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "banners"]
+            }
+          }
+        },
+        {
+          "name": "更新 Banner",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"夏日海边特惠(已结束)\",\n  \"imageUrl\": \"https://oss.../banner_summer.jpg\",\n  \"hotelId\": \"{{hotelId}}\",\n  \"sortOrder\": 2,\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/banners/{{bannerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "banners", "{{bannerId}}"]
+            }
+          }
+        },
+        {
+          "name": "删除 Banner",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/banners/{{bannerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "banners", "{{bannerId}}"]
+            }
+          }
+        },
+        {
+          "name": "创建标签",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"亲子\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tags"]
+            }
+          }
+        },
+        {
+          "name": "删除标签",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/tags/{{tagId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "tags", "{{tagId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "App Browse",
+      "item": [
+        {
+          "name": "首页 Banner",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/app/banners",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "banners"]
+            }
+          }
+        },
+        {
+          "name": "酒店列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/app/hotels?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "hotels"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "酒店详情",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/app/hotels/{{hotelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "hotels", "{{hotelId}}"]
+            }
+          }
+        },
+        {
+          "name": "房型列表(按价升序)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/app/hotels/{{hotelId}}/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["app", "hotels", "{{hotelId}}", "rooms"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

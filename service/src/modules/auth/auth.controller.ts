@@ -6,16 +6,16 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from './types/auth-user';
 
-@Controller()
+@Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('auth/register')
+  @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
-  @Post('auth/login')
+  @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }

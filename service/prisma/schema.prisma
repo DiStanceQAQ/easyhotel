@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model banners {
+  id         BigInt    @id @default(autoincrement())
+  title      String?   @db.VarChar(100)
+  image_url  String
+  hotel_id   String    @db.Uuid
+  start_at   DateTime? @db.Timestamptz(6)
+  end_at     DateTime? @db.Timestamptz(6)
+  is_active  Boolean   @default(true)
+  sort_order Int       @default(0)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  hotels     hotels    @relation(fields: [hotel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([hotel_id], map: "idx_banners_hotel_id")
+  @@index([is_active, sort_order], map: "idx_banners_is_active_sort")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model hotel_audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  hotel_id    String   @db.Uuid
+  action      String   @db.VarChar(20)
+  operator_id String   @db.Uuid
+  reason      String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  hotels      hotels   @relation(fields: [hotel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       users    @relation(fields: [operator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([hotel_id, created_at], map: "idx_hotel_audit_logs_hotel_id")
+  @@index([operator_id], map: "idx_hotel_audit_logs_operator_id")
+}
+
+model hotel_images {
+  id         BigInt   @id @default(autoincrement())
+  hotel_id   String   @db.Uuid
+  url        String
+  sort_order Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  hotels     hotels   @relation(fields: [hotel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([hotel_id], map: "idx_hotel_images_hotel_id")
+}
+
+model hotel_tags {
+  hotel_id String @db.Uuid
+  tag_id   BigInt
+  hotels   hotels @relation(fields: [hotel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tags     tags   @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([hotel_id, tag_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model hotels {
+  id                              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchant_id                     String             @db.Uuid
+  name_cn                         String             @db.VarChar(100)
+  name_en                         String             @db.VarChar(150)
+  city                            String             @db.VarChar(50)
+  address                         String             @db.VarChar(255)
+  lat                             Decimal?           @db.Decimal(10, 6)
+  lng                             Decimal?           @db.Decimal(10, 6)
+  star                            Int                @db.SmallInt
+  opened_at                       DateTime           @db.Date
+  facilities                      Json               @default("{}")
+  description                     String?
+  cover_image                     String?
+  min_price                       Int?
+  audit_status                    String             @default("DRAFT") @db.VarChar(20)
+  reject_reason                   String?            @db.VarChar(255)
+  publish_status                  String             @default("OFFLINE") @db.VarChar(20)
+  approved_by                     String?            @db.Uuid
+  approved_at                     DateTime?          @db.Timestamptz(6)
+  created_at                      DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime           @default(now()) @db.Timestamptz(6)
+  banners                         banners[]
+  hotel_audit_logs                hotel_audit_logs[]
+  hotel_images                    hotel_images[]
+  hotel_tags                      hotel_tags[]
+  users_hotels_approved_byTousers users?             @relation("hotels_approved_byTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_hotels_merchant_idTousers users              @relation("hotels_merchant_idTousers", fields: [merchant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  room_types                      room_types[]
+
+  @@index([audit_status, publish_status], map: "idx_hotels_audit_publish")
+  @@index([city], map: "idx_hotels_city")
+  @@index([merchant_id], map: "idx_hotels_merchant_id")
+  @@index([min_price], map: "idx_hotels_min_price")
+  @@index([city, star], map: "idx_hotels_star")
+}
+
+model merchant_profile {
+  id            BigInt   @id @default(autoincrement())
+  user_id       String   @unique @db.Uuid
+  merchant_name String   @db.VarChar(100)
+  contact_name  String?  @db.VarChar(50)
+  contact_phone String?  @db.VarChar(30)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model room_price_calendar {
+  id           BigInt     @id @default(autoincrement())
+  room_type_id BigInt
+  date         DateTime   @db.Date
+  price        Int
+  stock        Int        @default(10)
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  room_types   room_types @relation(fields: [room_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([room_type_id, date])
+  @@index([room_type_id], map: "idx_room_price_calendar_room_type_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model room_types {
+  id                  BigInt                @id @default(autoincrement())
+  hotel_id            String                @db.Uuid
+  name                String                @db.VarChar(100)
+  base_price          Int
+  currency            String                @default("CNY") @db.VarChar(10)
+  max_guests          Int                   @default(2) @db.SmallInt
+  breakfast           Boolean               @default(false)
+  refundable          Boolean               @default(true)
+  area_m2             Int?
+  status              Int                   @default(1) @db.SmallInt
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  cover_image         String?
+  room_price_calendar room_price_calendar[]
+  hotels              hotels                @relation(fields: [hotel_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([hotel_id], map: "idx_room_types_hotel_id")
+  @@index([hotel_id, base_price], map: "idx_room_types_hotel_price")
+}
+
+model tags {
+  id         BigInt       @id @default(autoincrement())
+  name       String       @unique @db.VarChar(50)
+  created_at DateTime     @default(now()) @db.Timestamptz(6)
+  hotel_tags hotel_tags[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username                         String             @unique @db.VarChar(50)
+  password                         String             @db.VarChar(255)
+  role                             String             @db.VarChar(20)
+  status                           Int                @default(1) @db.SmallInt
+  last_login_at                    DateTime?          @db.Timestamptz(6)
+  created_at                       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime           @default(now()) @db.Timestamptz(6)
+  hotel_audit_logs                 hotel_audit_logs[]
+  hotels_hotels_approved_byTousers hotels[]           @relation("hotels_approved_byTousers")
+  hotels_hotels_merchant_idTousers hotels[]           @relation("hotels_merchant_idTousers")
+  merchant_profile                 merchant_profile?
+
+  @@index([username], map: "idx_users_username")
+}

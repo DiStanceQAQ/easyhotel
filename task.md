@@ -87,9 +87,9 @@
 **内容**
 
 - Prisma 初始化（schema.prisma）并连 PostgreSQL
-- 建立核心表（最小集）：users、hotels、hotel_images、room_types、tags、hotel_tags、banners、hotel_audit_logs（可选）
+- 建立核心表（最小集）：users、merchant_profile、room_price_calendar、hotels、hotel_images、room_types、tags、hotel_tags、banners、hotel_audit_logs（可选）
 - `PrismaService` 封装 + 生命周期钩子
-- 种子数据（seed）：管理员/商户账号、1-2 家酒店、房型、banner、标签
+- 种子数据（seed）：管理员/商户账号、1-2 家酒店、房型、banner、标签等
 
 **AC**
 

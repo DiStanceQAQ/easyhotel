@@ -33,6 +33,15 @@ export class AdminPublishController {
   }
 
   /**
+   * 获取酒店发布详情
+   * GET /api/admin/hotels/publish/:id
+   */
+  @Get('publish/:id')
+  async getPublishDetail(@Param('id') hotelId: string) {
+    return this.publishService.getPublishDetail(hotelId);
+  }
+
+  /**
    * 修改酒店发布状态 (上线/下线)
    * PATCH /api/admin/hotels/:id/publish
    */

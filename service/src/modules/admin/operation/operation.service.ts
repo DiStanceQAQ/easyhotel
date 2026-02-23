@@ -18,15 +18,26 @@ export class AdminOperationService {
 
   /**
    * 获取 APPROVED 且 ONLINE 的酒店列表 (作为 Banner 的候选)
+   * 排除已经有 banner 的酒店
    */
   async getCandidateHotels(query: BannerCandidateQueryDto) {
     const skip = (query.page - 1) * query.pageSize;
+
+    // 获取已有banner的酒店ID列表
+    const hotelsWithBanner = await (this.prisma as any).banners.findMany({
+      select: { hotel_id: true },
+      distinct: ['hotel_id'],
+    });
+    const bannedHotelIds = hotelsWithBanner.map(b => b.hotel_id);
 
     const [hotels, total] = await Promise.all([
       (this.prisma as any).hotels.findMany({
         where: {
           audit_status: 'APPROVED',
           publish_status: 'ONLINE',
+          id: {
+            notIn: bannedHotelIds,
+          },
         },
         skip,
         take: query.pageSize,
@@ -48,6 +59,9 @@ export class AdminOperationService {
         where: {
           audit_status: 'APPROVED',
           publish_status: 'ONLINE',
+          id: {
+            notIn: bannedHotelIds,
+          },
         },
       }),
     ]);

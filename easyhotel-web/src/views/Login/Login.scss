@@ -1,0 +1,28 @@
+.login {
+    width: 100vw;
+    height: 100vh;
+    background-color: #369;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: url('https://dimg04.c-ctrip.com/images/1ol6912000g9uesr5B7E9.webp');
+    &-content {
+        width: 500px;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        padding: 40px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        
+        h2 {
+            text-align: center;
+            color: #272525 !important;
+            margin-bottom: 30px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    }
+}

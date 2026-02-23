@@ -26,23 +26,16 @@ export class CreateHotelDto {
 
   @IsNumber()
   @IsOptional()
-  latitude?: number;
+  lat?: number;
 
   @IsNumber()
   @IsOptional()
-  longitude?: number;
+  lng?: number;
 
   @IsArray()
-  @Type(() => String)
-  @IsString({ each: true })
+  @Type(() => Number)
   @IsOptional()
-  tagIds?: string[];
-
-  @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => Object)
-  images?: Array<{ url: string; displayOrder: number }>;
+  tagIds?: number[];
 }
 
 export class UpdateHotelDto {
@@ -70,29 +63,41 @@ export class UpdateHotelDto {
   @IsOptional()
   star?: number;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  latitude?: number;
+  openedAt?: string;
 
   @IsNumber()
   @IsOptional()
-  longitude?: number;
+  lat?: number;
+
+  @IsNumber()
+  @IsOptional()
+  lng?: number;
 
   @IsObject()
   @IsOptional()
   facilities?: Record<string, any>;
 
   @IsArray()
-  @Type(() => String)
+  @Type(() => Number)
   @IsOptional()
-  tagIds?: string[];
+  tagIds?: number[];
+}
+
+export class ImageDto {
+  @IsString()
+  url: string;
+
+  @IsNumber()
+  sortOrder: number;
 }
 
 export class SaveHotelImagesDto {
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => Object)
-  images: Array<{ id?: string; url: string; displayOrder: number }>;
+  @Type(() => ImageDto)
+  images: ImageDto[];
 }
 
 export class PaginationDto {
@@ -105,4 +110,12 @@ export class PaginationDto {
   @IsNumber()
   @IsOptional()
   pageSize: number = 10;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  auditStatus?: string;
 }

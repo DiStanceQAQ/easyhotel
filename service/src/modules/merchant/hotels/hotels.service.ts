@@ -22,22 +22,36 @@ export class MerchantHotelsService {
   async getMyHotels(userId: string, pagination: PaginationDto) {
     const skip = (pagination.page - 1) * pagination.pageSize;
 
+    const where: any = { merchant_id: userId };
+    if (pagination.name) {
+      where.name_cn = {
+        contains: pagination.name,
+        mode: 'insensitive',
+      };
+    }
+    if (pagination.auditStatus) {
+      where.audit_status = pagination.auditStatus;
+    }
+
     const [hotels, total] = await Promise.all([
       (this.prisma as any).hotels.findMany({
-        where: { merchant_id: userId },
+        where,
         skip,
         take: pagination.pageSize,
         select: {
           id: true,
           name_cn: true,
           name_en: true,
+          city: true,
           address: true,
+          star: true,
           audit_status: true,
           publish_status: true,
+          reject_reason: true,
           created_at: true,
         },
       }),
-      (this.prisma as any).hotels.count({ where: { merchant_id: userId } }),
+      (this.prisma as any).hotels.count({ where }),
     ]);
 
     return {
@@ -45,9 +59,12 @@ export class MerchantHotelsService {
         id: hotel.id,
         nameCn: hotel.name_cn,
         nameEn: hotel.name_en,
+        city: hotel.city,
         address: hotel.address,
+        star: hotel.star,
         auditStatus: hotel.audit_status,
         publishStatus: hotel.publish_status,
+        rejectReason: hotel.reject_reason,
         createdAt: hotel.created_at,
       })),
       total,
@@ -61,9 +78,6 @@ export class MerchantHotelsService {
    * 创建酒店 (初始状态为 DRAFT)
    */
   async createHotel(userId: string, dto: CreateHotelDto) {
-    // TODO: 验证商户是否存在
-    // TODO: 验证标签是否存在
-
     const hotel = await (this.prisma as any).hotels.create({
       data: {
         name_cn: dto.nameCn,
@@ -72,8 +86,8 @@ export class MerchantHotelsService {
         address: dto.address || '(待补充)',
         star: 1,
         opened_at: new Date(),
-        lat: dto.latitude ? new Decimal(dto.latitude) : null,
-        lng: dto.longitude ? new Decimal(dto.longitude) : null,
+        lat: dto.lat ? new Decimal(dto.lat) : null,
+        lng: dto.lng ? new Decimal(dto.lng) : null,
         description: dto.description || '',
         merchant_id: userId,
         audit_status: 'DRAFT',
@@ -112,13 +126,14 @@ export class MerchantHotelsService {
           select: {
             id: true,
             url: true,
-            display_order: true,
+            sort_order: true,
           },
-          orderBy: { display_order: 'asc' },
+          orderBy: { sort_order: 'asc' },
         },
         hotel_tags: {
           select: {
-            tag: {
+            tag_id: true,
+            tags: {
               select: {
                 id: true,
                 name: true,
@@ -150,10 +165,10 @@ export class MerchantHotelsService {
       nameEn: hotel.name_en,
       city: hotel.city,
       address: hotel.address,
-      latitude: hotel.lat,
-      longitude: hotel.lng,
+      lat: hotel.lat ? parseFloat(hotel.lat.toString()) : null,
+      lng: hotel.lng ? parseFloat(hotel.lng.toString()) : null,
       star: hotel.star,
-      openedAt: hotel.opened_at,
+      openedAt: hotel.opened_at ? new Date(hotel.opened_at).toISOString().split('T')[0] : null,
       description: hotel.description,
       coverImage: hotel.cover_image,
       minPrice: hotel.min_price,
@@ -165,12 +180,12 @@ export class MerchantHotelsService {
       approvedAt: hotel.approved_at,
       createdAt: hotel.created_at,
       updatedAt: hotel.updated_at,
-      hotelImages: hotel.hotel_images?.map(img => ({
+      images: hotel.hotel_images?.map(img => ({
         id: img.id,
         url: img.url,
-        displayOrder: img.display_order,
+        sortOrder: img.sort_order,
       })),
-      hotelTags: hotel.hotel_tags,
+      tagIds: hotel.hotel_tags?.map(ht => ht.tag_id) || [],
     };
   }
 
@@ -209,35 +224,60 @@ export class MerchantHotelsService {
       });
     }
 
-    const updated = await (this.prisma as any).hotels.update({
-      where: { id: hotelId },
-      data: {
-        ...(dto.nameCn && { name_cn: dto.nameCn }),
-        ...(dto.nameEn && { name_en: dto.nameEn }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.city && { city: dto.city }),
-        ...(dto.address && { address: dto.address }),
-        ...(dto.star !== undefined && { star: dto.star }),
-        ...(dto.latitude !== undefined && { lat: dto.latitude ? new Decimal(dto.latitude) : null }),
-        ...(dto.longitude !== undefined && { lng: dto.longitude ? new Decimal(dto.longitude) : null }),
-        ...(dto.facilities && { facilities: dto.facilities }),
-        updated_at: new Date(),
-      },
-      select: {
-        id: true,
-        name_cn: true,
-        name_en: true,
-        city: true,
-        address: true,
-        star: true,
-        lat: true,
-        lng: true,
-        description: true,
-        facilities: true,
-        audit_status: true,
-        publish_status: true,
-        updated_at: true,
-      },
+    // 使用事务来保证标签和酒店信息同步更新
+    const updated = await (this.prisma as any).$transaction(async (tx: any) => {
+      // 更新酒店信息
+      const hotel = await tx.hotels.update({
+        where: { id: hotelId },
+        data: {
+          ...(dto.nameCn && { name_cn: dto.nameCn }),
+          ...(dto.nameEn && { name_en: dto.nameEn }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.city && { city: dto.city }),
+          ...(dto.address && { address: dto.address }),
+          ...(dto.star !== undefined && { star: dto.star }),
+          ...(dto.openedAt && { opened_at: new Date(dto.openedAt) }),
+          ...(dto.lat !== undefined && { lat: dto.lat ? new Decimal(dto.lat) : null }),
+          ...(dto.lng !== undefined && { lng: dto.lng ? new Decimal(dto.lng) : null }),
+          ...(dto.facilities && { facilities: dto.facilities }),
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          name_cn: true,
+          name_en: true,
+          city: true,
+          address: true,
+          star: true,
+          lat: true,
+          lng: true,
+          description: true,
+          facilities: true,
+          audit_status: true,
+          publish_status: true,
+          updated_at: true,
+        },
+      });
+
+      // 更新标签关联 (如果提供了 tagIds)
+      if (dto.tagIds && Array.isArray(dto.tagIds)) {
+        // 删除旧标签关联
+        await tx.hotel_tags.deleteMany({
+          where: { hotel_id: hotelId },
+        });
+
+        // 创建新标签关联
+        if (dto.tagIds.length > 0) {
+          await tx.hotel_tags.createMany({
+            data: dto.tagIds.map((tagId) => ({
+              hotel_id: hotelId,
+              tag_id: tagId,
+            })),
+          });
+        }
+      }
+
+      return hotel;
     });
 
     return {
@@ -247,8 +287,8 @@ export class MerchantHotelsService {
       city: updated.city,
       address: updated.address,
       star: updated.star,
-      latitude: updated.lat,
-      longitude: updated.lng,
+      lat: updated.lat ? parseFloat(updated.lat.toString()) : null,
+      lng: updated.lng ? parseFloat(updated.lng.toString()) : null,
       description: updated.description,
       facilities: updated.facilities,
       auditStatus: updated.audit_status,
@@ -263,7 +303,7 @@ export class MerchantHotelsService {
   async saveHotelImages(
     userId: string,
     hotelId: string,
-    images: Array<{ id?: string; url: string; displayOrder: number }>,
+    images: Array<{ url: string; sortOrder: number }>,
   ) {
     const hotel = await (this.prisma as any).hotels.findUnique({
       where: { id: hotelId },
@@ -283,8 +323,24 @@ export class MerchantHotelsService {
       });
     }
 
-    // TODO: 删除旧图片，保存新图片
-    // 使用事务确保原子性
+    // 使用事务删除旧图片，保存新图片
+    await (this.prisma as any).$transaction(async (tx: any) => {
+      // 删除旧图片
+      await tx.hotel_images.deleteMany({
+        where: { hotel_id: hotelId },
+      });
+
+      // 创建新图片
+      if (images && images.length > 0) {
+        await tx.hotel_images.createMany({
+          data: images.map((img) => ({
+            hotel_id: hotelId,
+            url: img.url,
+            sort_order: img.sortOrder,
+          })),
+        });
+      }
+    });
 
     return {
       hotelId,

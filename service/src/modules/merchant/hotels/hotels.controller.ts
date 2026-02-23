@@ -18,6 +18,7 @@ import type { AuthUser } from '../../../common/types/auth-user';
 import {
   CreateHotelDto,
   UpdateHotelDto,
+  SaveHotelImagesDto,
   PaginationDto,
 } from './dto/hotel.dto';
 
@@ -84,10 +85,9 @@ export class MerchantHotelsController {
   async saveHotelImages(
     @CurrentUser() user: AuthUser,
     @Param('id') hotelId: string,
-    @Body()
-    images: Array<{ id?: string; url: string; displayOrder: number }>,
+    @Body() dto: SaveHotelImagesDto,
   ) {
-    return this.hotelsService.saveHotelImages(user.userId, hotelId, images);
+    return this.hotelsService.saveHotelImages(user.userId, hotelId, dto.images);
   }
 
   /**

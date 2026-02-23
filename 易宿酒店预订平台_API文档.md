@@ -105,12 +105,14 @@
 | Merchant Hotel | 提交酒店审核 | POST | /api/merchant/hotels/{id}/submit | 是 | MERCHANT | 将酒店状态修改为 PENDING |
 | Merchant Room | 获取某酒店房型列表 | GET | /api/merchant/hotels/{hotelId}/rooms | 是 | MERCHANT | 获取指定酒店下的所有房型 |
 | Merchant Room | 创建房型 | POST | /api/merchant/rooms | 是 | MERCHANT | 在指定酒店下创建新房型 |
+| Merchant Room | 获取房型详情 | GET | /api/merchant/rooms/{id} | 是 | MERCHANT | 获取指定房型的详细信息（编辑回显） |
 | Merchant Room | 更新房型 | PUT | /api/merchant/rooms/{id} | 是 | MERCHANT | 更新指定房型信息 |
 | Merchant Room | 修改房型售卖状态 | PATCH | /api/merchant/rooms/{id}/status | 是 | MERCHANT | 快速切换房型的上架/下架状态 |
 | Admin Audit | 获取酒店审核列表 | GET | /api/admin/hotels/audit | 是 | ADMIN | 分页获取待审核的酒店列表 |
 | Admin Audit | 获取酒店审核详情 | GET | /api/admin/hotels/{id}/audit-detail | 是 | ADMIN | 获取用于审核的酒店完整信息 |
 | Admin Audit | 提交审核结果 | POST | /api/admin/hotels/{id}/audit | 是 | ADMIN | 管理员提交通过或拒绝的决定 |
 | Admin Publish | 获取酒店发布列表 | GET | /api/admin/hotels/publish | 是 | ADMIN | 获取已通过审核的酒店列表 |
+| Admin Publish | 获取酒店发布详情 | GET | /api/admin/hotels/publish/{id} | 是 | ADMIN | 获取酒店发布详情（基础信息/图片/标签/房型） |
 | Admin Publish | 修改酒店发布状态 | PATCH | /api/admin/hotels/{id}/publish | 是 | ADMIN | 管理员强制切换酒店的上线/下线状态 |
 | Admin Operation | 获取 Banner 候选酒店列表 | GET | /api/admin/banners/candidate-hotels | 是 | ADMIN | 获取 APPROVED 且 ONLINE 的酒店列表 |
 | Admin Operation | 获取 Banner 列表 | GET | /api/admin/banners | 是 | ADMIN | 获取所有首页 Banner 配置 |
@@ -184,7 +186,7 @@
     // 核心访问令牌
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhOGYz...", 
     // 用户基础信息，供前端存储和跳转判断
-    "userInfo": {
+    "user": {
         "id": "a8f30d62-1234-5678-abcd-...", 
         "username": "merchant_001",
         "role": "MERCHANT"
@@ -221,7 +223,17 @@
         "merchantName": "易宿商旅集团",
         "contactName": "张三",
         "contactPhone": "13800138000"
-    }
+    },
+    "hotels": [
+    {
+        "id": "d3f49b6a-5368-463c-927a-550006bff93c",
+        "nameCn": "易宿精选酒店(北京中心店)",
+        "nameEn": "EasyStay Hotel 北京 No.1",
+        "city": "北京",
+        "address": "北京市示范区街道1号",
+        "auditStatus": "APPROVED",
+        "publishStatus": "ONLINE"
+    }]
   }
 }
 ```
@@ -282,12 +294,15 @@
 {
   "code": 0,
   "message": "ok",
-  "data": [
-    { "id": 1, "name": "亲子" },
-    { "id": 2, "name": "免费停车" },
-    { "id": 3, "name": "商务出行" },
-    { "id": 4, "name": "近地铁" }
-  ]
+  "data": {
+    "list": [
+      { "id": "1", "name": "亲子" },
+      { "id": "2", "name": "免费停车" },
+      { "id": "3", "name": "商务出行" },
+      { "id": "4", "name": "近地铁" }
+    ],
+    "total": 4
+  }
 }
 ```
 
@@ -318,7 +333,9 @@
   "code": 0,
   "message": "ok",
   "data": {
-    "url": "https://your-oss-bucket.com/uploads/2026/02/04/hotel_cover_123.jpg"
+    "url": "https://your-oss-bucket.com/uploads/2026/02/04/hotel_cover_123.jpg",
+    "filename": "hotel_cover_123.jpg",
+    "size": 245678
   }
 }
 ```
@@ -549,24 +566,26 @@
 
 **请求参数 (Path)**: id (酒店 UUID)
 
-**请求参数 (Body)**: 图片对象数组
+**请求参数 (Body)**
 
 
 ```json
-[
-  { 
-    "url": "https://oss.../new_cover.jpg", 
-    "sortOrder": 0  // 排在第一个的默认为封面
-  },
-  { 
-    "url": "https://oss.../lobby_v2.jpg", 
-    "sortOrder": 1 
-  },
-  { 
-    "url": "https://oss.../room_detail.jpg", 
-    "sortOrder": 2 
-  }
-]
+{
+  "images": [
+    { 
+      "url": "https://oss.../new_cover.jpg", 
+      "sortOrder": 0  // 排在第一个的默认为封面
+    },
+    { 
+      "url": "https://oss.../lobby_v2.jpg", 
+      "sortOrder": 1 
+    },
+    { 
+      "url": "https://oss.../room_detail.jpg", 
+      "sortOrder": 2 
+    }
+  ]
+}
 ```
 
 
@@ -628,33 +647,36 @@
 {
   "code": 0,
   "message": "ok",
-  "data": [
-    {
-      "id": 101,
-      "name": "标准大床房",
-      // 列表页展示用的封面图
-      "coverImage": "https://oss.../room_std_cover.jpg", 
-      "basePrice": 380, // 建议单位：分 或根据业务约定
-      "maxGuests": 2,
-      "breakfast": false,
-      "refundable": true,
-      "status": 1, // 1: 上架, 0: 下架
-      "stockMgtType": 1, // 0:不管理, 1:标准日历库存
-      "totalStock": 20   // 标准库存总量
-    },
-    {
-      "id": 102,
-      "name": "豪华双床房",
-      "coverImage": null,
-      "basePrice": 580,
-      "maxGuests": 3,
-      "breakfast": true,
-      "refundable": true,
-      "status": 0, // 已下架
-      "stockMgtType": 1,
-      "totalStock": 15
-    }
-  ]
+  "data": {
+    "list": [
+      {
+        "id": "room-uuid-101",
+        "name": "标准大床房",
+        "coverImage": "https://oss.../room_std_cover.jpg", 
+        "basePrice": 380,
+        "currency": "CNY",
+        "maxGuests": 2,
+        "breakfast": false,
+        "refundable": true,
+        "areaM2": 28,
+        "status": 1
+      },
+      {
+        "id": "room-uuid-102",
+        "name": "豪华双床房",
+        "coverImage": null,
+        "basePrice": 580,
+        "currency": "CNY",
+        "maxGuests": 3,
+        "breakfast": true,
+        "refundable": true,
+        "areaM2": 35,
+        "status": 0
+      }
+    ],
+    "total": 2,
+    "hotelId": "hotel-uuid-sz-001"
+  }
 }
 ```
 
@@ -686,7 +708,14 @@
   "areaM2": 45,       // 选填，面积
   "status": 1,        // 必填，初始状态(1上架/0下架)
   "stockMgtType": 1,  // 必填，库存模式(0不管理/1标准)
-  "totalStock": 10    // 选填，当 stockMgtType=1 时必填
+  "totalStock": 10,   // 选填，当 stockMgtType=1 时必填
+  "priceCalendar": [  // 选填，价格日历
+    {
+      "date": "2026-02-25",  // 日期 (YYYY-MM-DD)
+      "price": 980,          // 该日期的价格
+      "stock": 10            // 该日期的库存(默认10)
+    }
+  ]
 }
 ```
 
@@ -698,7 +727,60 @@
 { "code": 0, "message": "ok", "data": null }
 ```
 
-### 4.3 更新房型
+### 4.3 获取房型详情
+
+- **方法**: GET
+
+- **Path**: /api/merchant/rooms/{id}
+
+- **鉴权**: 需要 Token
+
+- **角色**: MERCHANT
+
+- **说明**: 获取指定房型的详细信息，用于编辑页面回显。
+
+
+**请求参数 (Path)**: id (房型 ID, int)
+
+**响应示例**
+
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": "room-uuid-101",
+    "hotelId": "hotel-uuid-sz-001",
+    "hotelName": "易宿酒店(深圳南山店)",
+    "name": "标准大床房",
+    "basePrice": 380,
+    "currency": "CNY",
+    "maxGuests": 2,
+    "breakfast": false,
+    "refundable": true,
+    "areaM2": 30,
+    "status": 1,
+    "coverImage": "https://oss.../room_std_cover.jpg",
+    "createdAt": "2026-01-15T10:00:00Z",
+    "updatedAt": "2026-02-01T14:30:00Z",
+    "priceCalendar": [
+      {
+        "date": "2026-02-25",
+        "price": 380,
+        "stock": 10
+      },
+      {
+        "date": "2026-02-26",
+        "price": 420,
+        "stock": 8
+      }
+    ]
+  }
+}
+```
+
+### 4.4 更新房型
 
 - **方法**: PUT
 
@@ -722,11 +804,23 @@
   "basePrice": 980,
   "maxGuests": 2,
   "breakfast": true,
-  "refundable": true, // 修改为可退
+  "refundable": true,
   "areaM2": 45,
   "status": 1,
   "stockMgtType": 1,
-  "totalStock": 10
+  "totalStock": 10,
+  "priceCalendar": [  // 选填，价格日历(更新会替换原有的所有日期记录)
+    {
+      "date": "2026-02-25",
+      "price": 980,
+      "stock": 12
+    },
+    {
+      "date": "2026-02-26",
+      "price": 1080,
+      "stock": 10
+    }
+  ]
 }
 ```
 
@@ -738,7 +832,7 @@
 { "code": 0, "message": "ok", "data": null }
 ```
 
-### 4.4 修改房型售卖状态 (快速上下架)
+### 4.5 修改房型售卖状态 (快速上下架)
 
 - **方法**: PATCH
 
@@ -789,12 +883,8 @@
 
 | 字段 | 类型 | 必填 | 说明 | 示例 |
 | :--- | :--- | :--- | :--- | :--- |
-| 字段 | 类型 | 必填 | 说明 | 示例 |
-| :--- | :--- | :--- | :--- | :--- |
 | page | int | 否 | 页码 | 1 |
 | pageSize | int | 否 | 每页条数 | 10 |
-| city | string | 否 | 城市筛选 | 深圳 |
-| auditStatus | string | 否 | 状态筛选(默认PENDING) | PENDING |
 
 
 **响应示例**
@@ -819,8 +909,7 @@
         // 关联商户信息
         "merchant": {
             "id": "user-id-merchant-A",
-            "username": "merchant_001",
-            "merchantName": "易宿商旅集团"
+            "username": "merchant_001"
         }
       }
       // ...
@@ -869,7 +958,7 @@
 ```json
 {
   "status": "REJECTED", // 必填，APPROVED(通过) 或 REJECTED(拒绝)
-  "reason": "酒店外观图片含有无关水印，且描述中包含违规营销词汇，请修改后重新提交。" // 当 status 为 REJECTED 时必填
+  "rejectionReason": "酒店外观图片含有无关水印，且描述中包含违规营销词汇，请修改后重新提交。" // 当 status 为 REJECTED 时必填
 }
 ```
 
@@ -900,9 +989,9 @@
 
 | 字段 | 类型 | 必填 | 说明 | 示例 |
 | :--- | :--- | :--- | :--- | :--- |
-| 字段 | 类型 | 说明 | 示例 | :--- |
-| :--- | :--- | :--- | page | int |
-| 页码 | 1 | publishStatus | string | 状态(ONLINE/OFFLINE) |
+| page | int | 否 | 页码 | 1 |
+| pageSize | int | 否 | 每页条数 | 10 |
+| status | string | 否 | 状态(ONLINE/OFFLINE) | ONLINE |
 
 
 **响应示例**
@@ -961,6 +1050,66 @@
 { "code": 0, "message": "ok", "data": null }
 ```
 
+### 6.3 获取酒店发布详情
+
+- **方法**: GET
+
+- **Path**: /api/admin/hotels/publish/{id}
+
+- **鉴权**: 需要 Token
+
+- **角色**: ADMIN
+
+- **说明**: 获取酒店发布详情（基础信息 + 图片 + 标签 + 房型）。
+
+
+**请求参数 (Path)**: id (酒店 UUID)
+
+**响应示例**
+
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": "hotel-uuid-bj-002",
+    "nameCn": "易宿酒店(北京国贸店)",
+    "nameEn": "EasyStay Hotel Beijing",
+    "city": "北京",
+    "address": "北京市朝阳区建国路88号",
+    "star": 5,
+    "openedAt": "2020-10-01",
+    "auditStatus": "APPROVED",
+    "publishStatus": "ONLINE",
+    "merchant": {
+      "id": "merchant-id-001",
+      "username": "merchant_001"
+    },
+    "images": [
+      { "id": 11, "url": "https://oss.../cover.jpg", "sortOrder": 0 },
+      { "id": 12, "url": "https://oss.../lobby.jpg", "sortOrder": 1 }
+    ],
+    "tags": [
+      { "id": 2, "name": "亲子" },
+      { "id": 3, "name": "免费停车" }
+    ],
+    "roomTypes": [
+      {
+        "id": 101,
+        "name": "标准大床房",
+        "basePrice": 380,
+        "currency": "CNY",
+        "maxGuests": 2,
+        "breakfast": false,
+        "refundable": true,
+        "areaM2": 28
+      }
+    ]
+  }
+}
+```
+
 ## 模块七：管理员端 - 运营管理 (Admin Operation)
 
 ### 7.0 获取 Banner 候选酒店列表 (新增)
@@ -991,21 +1140,36 @@
 {
   "code": 0,
   "message": "ok",
-  "data": [
-    {
-      "id": "hotel-uuid-sanya-001",
-      "nameCn": "易宿三亚亚龙湾度假酒店",
-      "city": "三亚",
-      // 返回封面图供 UI 选择器预览
-      "coverImage": "https://oss.../sanya_cover.jpg" 
-    },
-    {
-      "id": "hotel-uuid-sz-005",
-      "nameCn": "易宿深圳湾科技酒店",
-      "city": "深圳",
-      "coverImage": "https://oss.../sz_cover.jpg"
-    }
-  ]
+  "data": {
+    "list": [
+      {
+        "id": "hotel-uuid-sanya-001",
+        "nameCn": "易宿三亚亚龙湾度假酒店",
+        "nameEn": "EasyStay Yalong Bay Resort",
+        "city": "三亚",
+        "address": "亚龙湾路888号",
+        "description": "海滨度假酒店",
+        "hotelImages": [
+          { "url": "https://oss.../sanya_cover.jpg", "sortOrder": 0 }
+        ]
+      },
+      {
+        "id": "hotel-uuid-sz-005",
+        "nameCn": "易宿深圳湾科技酒店",
+        "nameEn": "EasyStay Shenzhen Bay Hotel",
+        "city": "深圳",
+        "address": "后海大道123号",
+        "description": "科技商务酒店",
+        "hotelImages": [
+          { "url": "https://oss.../sz_cover.jpg", "sortOrder": 0 }
+        ]
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 10,
+    "hasMore": false
+  }
 }
 ```
 
@@ -1031,26 +1195,28 @@
   "message": "ok",
   "data": [
     {
-      "id": 1,
+      "id": "banner-uuid-1",
       "title": "夏日海边特惠",
       "imageUrl": "https://oss.../banner_summer.jpg",
-      "sortOrder": 1,
+      "displayOrder": 1,
       "isActive": true,
       // 关联的酒店简要信息
       "hotel": {
           "id": "hotel-uuid-sanya-001",
-          "nameCn": "易宿三亚亚龙湾度假酒店"
+          "nameCn": "易宿三亚亚龙湾度假酒店",
+          "nameEn": "EasyStay Yalong Bay Resort"
       }
     },
     {
-      "id": 2,
+      "id": "banner-uuid-2",
       "title": "商务出行首选",
       "imageUrl": "https://oss.../banner_business.jpg",
-      "sortOrder": 2,
+      "displayOrder": 2,
       "isActive": false, // 已禁用
       "hotel": {
           "id": "hotel-uuid-bj-002",
-          "nameCn": "易宿酒店(北京国贸店)"
+          "nameCn": "易宿酒店(北京国贸店)",
+          "nameEn": "EasyStay Hotel Beijing"
       }
     }
   ]
@@ -1079,7 +1245,7 @@
   "imageUrl": "https://oss.../banner_national_day.jpg", // 必填
   // 必填，从候选列表中选择的酒店ID
   "hotelId": "hotel-uuid-sz-005", 
-  "sortOrder": 10,   // 必填，排序值
+  "displayOrder": 10,   // 必填，排序值
   "isActive": true   // 必填，是否启用
 }
 ```
@@ -1115,7 +1281,7 @@
   "title": "国庆黄金周大促(已结束)",
   "imageUrl": "https://oss.../banner_national_day.jpg",
   "hotelId": "hotel-uuid-sz-005",
-  "sortOrder": 99,
+  "displayOrder": 99,
   "isActive": false // 修改为禁用
 }
 ```
@@ -1180,8 +1346,9 @@
   "message": "ok",
   // 返回新创建的对象，方便前端回显
   "data": {
-    "id": 18,
-    "name": "电竞主题"
+    "id": "18",
+    "name": "电竞主题",
+    "createdAt": "2026-02-04T12:00:00Z"
   }
 }
 ```
@@ -1240,11 +1407,11 @@
   "message": "ok",
   "data": [
     {
-      "id": 1,
+      "id": "banner-uuid-1",
       "title": "海景特惠",
       "imageUrl": "https://.../b1.png",
-      "hotelId": 1001,
-      "sortOrder": 10
+      "hotelId": "hotel-uuid-1001",
+      "displayOrder": 10
     }
   ]
 }
@@ -1293,7 +1460,7 @@
   "data": {
     "list": [
       {
-        "id": 1001,
+        "id": "hotel-uuid-1001",
         "nameCn": "易宿海景酒店",
         "star": 5,
         "city": "广州",
@@ -1331,7 +1498,7 @@
 - **备注**: 详情页房型列表建议单独接口（/rooms），以便按价格升序与支持后续价格日历扩展。
 
 
-**请求参数 (Path)**: id (酒店 ID, number)
+**请求参数 (Path)**: id (酒店 ID, string/UUID)
 
 **响应示例**
 
@@ -1341,18 +1508,21 @@
   "code": 0,
   "message": "ok",
   "data": {
-    "id": 1001,
+    "id": "hotel-uuid-1001",
     "nameCn": "易宿海景酒店",
     "nameEn": "Yisu Seaview Hotel",
     "star": 5,
     "city": "广州",
     "address": "天河区xx路",
     "openedAt": "2018-05-01",
-    "facilities": [
-      "WiFi",
-      "停车场",
-      "健身房"
-    ],
+    "facilities": {
+      "wifi": true,
+      "parking": true,
+      "gym": true,
+      "pool": false,
+      "restaurant": true,
+      "meetingRoom": false
+    },
     "tags": [
       "亲子",
       "免费停车"
@@ -1389,7 +1559,7 @@
 - **说明**: 获取房型列表（后端按价格从低到高排序返回）。
 
 
-**请求参数 (Path)**: id (酒店 ID, number)
+**请求参数 (Path)**: id (酒店 ID, string/UUID)
 
 **请求参数 (Query)**
 
@@ -1407,20 +1577,20 @@
   "message": "ok",
   "data": [
     {
-      "id": 501,
-      "hotelId": 1001,
+      "id": "room-uuid-501",
+      "hotelId": "hotel-uuid-1001",
       "name": "高级大床房",
       "basePrice": 399,
       "maxGuests": 2,
-      "breakfast": 0
+      "breakfast": false
     },
     {
-      "id": 502,
-      "hotelId": 1001,
+      "id": "room-uuid-502",
+      "hotelId": "hotel-uuid-1001",
       "name": "豪华套房",
       "basePrice": 699,
       "maxGuests": 3,
-      "breakfast": 1
+      "breakfast": true
     }
   ]
 }

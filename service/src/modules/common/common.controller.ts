@@ -7,7 +7,9 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';import type { Multer } from 'multer';import { CommonService } from './common.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Multer } from 'multer';
+import { CommonService } from './common.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadResponseDto } from './dto/upload.dto';
 
@@ -43,4 +45,5 @@ export class CommonController {
     }
     return this.commonService.uploadFile(file);
   }
+
 }

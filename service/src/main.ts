@@ -14,16 +14,22 @@ async function bootstrap() {
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
+    'http://localhost:3001',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
   ];
-  const envOrigins = process.env.CORS_ORIGINS?.split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
 
   app.enableCors({
-    origin: envOrigins && envOrigins.length > 0 ? envOrigins : defaultOrigins,
+    origin: (origin, callback) => {
+      // 允许白名单中的来源，或无来源（比如同源请求、移动端请求）
+      if (!origin || defaultOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS not allowed'));
+      }
+    },
     credentials: true,
   });
 

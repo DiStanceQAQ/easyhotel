@@ -74,6 +74,67 @@ export class MerchantRoomsService {
   }
 
   /**
+   * 获取房型详情
+   */
+  async getRoomDetail(userId: string, roomId: string) {
+    const room = await (this.prisma as any).room_types.findUnique({
+      where: { id: roomId },
+      include: {
+        hotels: {
+          select: {
+            id: true,
+            merchant_id: true,
+            name_cn: true,
+          },
+        },
+        room_price_calendar: {
+          select: {
+            date: true,
+            price: true,
+            stock: true,
+          },
+          orderBy: { date: 'asc' },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundException({
+        code: 40400,
+        message: '房型不存在',
+      });
+    }
+
+    if (room.hotels.merchant_id !== userId) {
+      throw new ForbiddenException({
+        code: 40300,
+        message: '无权限查看此房型',
+      });
+    }
+
+    return {
+      id: room.id,
+      hotelId: room.hotel_id,
+      hotelName: room.hotels.name_cn,
+      name: room.name,
+      basePrice: room.base_price,
+      maxGuests: room.max_guests,
+      breakfast: room.breakfast,
+      refundable: room.refundable,
+      areaM2: room.area_m2,
+      status: room.status,
+      coverImage: room.cover_image,
+      createdAt: room.created_at,
+      updatedAt: room.updated_at,
+      priceCalendar: room.room_price_calendar?.map(item => ({
+        date: item.date ? new Date(item.date).toISOString().split('T')[0] : null,
+        price: item.price,
+        stock: item.stock,
+      })) || [],
+    };
+  }
+
+  /**
    * 创建房型
    */
   async createRoom(userId: string, dto: CreateRoomDto) {
@@ -123,6 +184,18 @@ export class MerchantRoomsService {
         created_at: true,
       },
     });
+
+    // 保存价格日历（如果提供了）
+    if (dto.priceCalendar && Array.isArray(dto.priceCalendar) && dto.priceCalendar.length > 0) {
+      await (this.prisma as any).room_price_calendar.createMany({
+        data: dto.priceCalendar.map((item) => ({
+          room_type_id: room.id,
+          date: new Date(item.date),
+          price: item.price,
+          stock: item.stock ?? 10,
+        })),
+      });
+    }
 
     return {
       id: room.id,
@@ -188,6 +261,26 @@ export class MerchantRoomsService {
         updated_at: true,
       },
     });
+
+    // 处理价格日历更新
+    if (dto.priceCalendar !== undefined) {
+      // 删除所有现有的价格日历记录
+      await (this.prisma as any).room_price_calendar.deleteMany({
+        where: { room_type_id: roomId },
+      });
+
+      // 如果提供了新的价格日历数据，创建新记录
+      if (Array.isArray(dto.priceCalendar) && dto.priceCalendar.length > 0) {
+        await (this.prisma as any).room_price_calendar.createMany({
+          data: dto.priceCalendar.map((item) => ({
+            room_type_id: roomId,
+            date: new Date(item.date),
+            price: item.price,
+            stock: item.stock ?? 10,
+          })),
+        });
+      }
+    }
 
     return {
       id: updated.id,

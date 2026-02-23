@@ -41,6 +41,18 @@ export class MerchantRoomsController {
   }
 
   /**
+   * 获取房型详情
+   * GET /api/merchant/rooms/:id
+   */
+  @Get('rooms/:id')
+  async getRoomDetail(
+    @CurrentUser() user: AuthUser,
+    @Param('id') roomId: string,
+  ) {
+    return this.roomsService.getRoomDetail(user.userId, roomId);
+  }
+
+  /**
    * 创建房型
    * POST /api/merchant/rooms
    */

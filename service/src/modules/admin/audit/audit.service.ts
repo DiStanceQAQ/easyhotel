@@ -53,7 +53,9 @@ export class AdminAuditService {
         address: h.address,
         auditStatus: h.audit_status,
         merchant: h.users_hotels_merchant_idTousers,
-        createdAt: h.created_at,
+        createdAt: h.created_at
+          ? new Date(h.created_at as unknown as string | number | Date).toISOString()
+          : null,
       })),
       total,
       page: query.page,
@@ -115,7 +117,13 @@ export class AdminAuditService {
       });
     }
 
-    return hotel;
+    // 格式化日期字段和数字字段，确保一致的数据格式
+    return {
+      ...hotel,
+      opened_at: hotel.opened_at ? new Date(hotel.opened_at).toISOString().split('T')[0] : null,
+      lat: hotel.lat ? parseFloat(hotel.lat.toString()) : null,
+      lng: hotel.lng ? parseFloat(hotel.lng.toString()) : null,
+    };
   }
 
   /**

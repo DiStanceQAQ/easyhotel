@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -56,6 +57,10 @@ export class CreateRoomDto {
   @Type(() => Number)
   @IsOptional()
   totalStock?: number;
+
+  @IsArray()
+  @IsOptional()
+  priceCalendar?: Array<{ date: string; price: number; stock: number }>;
 }
 
 export class UpdateRoomDto {
@@ -108,6 +113,10 @@ export class UpdateRoomDto {
   @Type(() => Number)
   @IsOptional()
   totalStock?: number;
+
+  @IsArray()
+  @IsOptional()
+  priceCalendar?: Array<{ date: string; price: number; stock: number }>;
 }
 
 export class UpdateRoomStatusDto {

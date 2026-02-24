@@ -3,7 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { BannersService } from './banners.service';
 
 describe('BannersService', () => {
-  it('filters by isActive and orders by sortOrder', async () => {
+  it('filters by visibility and orders by sortOrder', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { banners: { findMany } } as unknown as PrismaService;
 
@@ -16,7 +16,15 @@ describe('BannersService', () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { is_active: true },
+        where: expect.objectContaining({
+          is_active: true,
+          hotels: {
+            is: {
+              audit_status: 'APPROVED',
+              publish_status: 'ONLINE',
+            },
+          },
+        }),
         orderBy: { sort_order: 'asc' },
       }),
     );

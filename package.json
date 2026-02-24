@@ -14,7 +14,13 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "dev": "npm run dev --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "mobile:android:onekey": "bash scripts/start-android-dev.sh",
+    "mobile:android:genymotion": "ANDROID_RUNTIME=genymotion bash scripts/start-android-dev.sh",
+    "mobile:android:studio": "ANDROID_RUNTIME=studio bash scripts/start-android-dev.sh"
+  },
+  "dependencies": {
+    "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.14.1",
@@ -26,6 +32,9 @@
     "eslint-plugin-react-native": "^4.1.0",
     "prettier": "^3.3.3",
     "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "react-native-screens": "~4.16.0"
   },
   "engines": {
     "node": ">=20"

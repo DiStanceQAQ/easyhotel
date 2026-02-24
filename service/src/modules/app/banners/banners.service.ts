@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 export type BannerDto = {
@@ -10,25 +9,34 @@ export type BannerDto = {
   sortOrder: number;
 };
 
-type BannerRow = Prisma.bannersGetPayload<{
-  select: {
-    id: true;
-    title: true;
-    image_url: true;
-    hotel_id: true;
-    sort_order: true;
-  };
-}>;
+type BannerRow = {
+  id: bigint;
+  title: string | null;
+  image_url: string;
+  hotel_id: string;
+  sort_order: number;
+};
 
 @Injectable()
 export class BannersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(city?: string): Promise<BannerDto[]> {
-    const where: Prisma.bannersWhereInput = { is_active: true };
-    if (city) {
-      where.hotels = { is: { city } };
-    }
+    const now = new Date();
+    const where = {
+      is_active: true,
+      AND: [
+        { OR: [{ start_at: null }, { start_at: { lte: now } }] },
+        { OR: [{ end_at: null }, { end_at: { gte: now } }] },
+      ],
+      hotels: {
+        is: {
+          audit_status: 'APPROVED',
+          publish_status: 'ONLINE',
+          ...(city ? { city } : {}),
+        },
+      },
+    };
 
     const banners: BannerRow[] = await this.prisma.banners.findMany({
       where,

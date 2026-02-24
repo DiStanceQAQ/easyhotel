@@ -20,11 +20,16 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
   ];
+  const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+  const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
 
   app.enableCors({
     origin: (origin, callback) => {
       // 允许白名单中的来源，或无来源（比如同源请求、移动端请求）
-      if (!origin || defaultOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.has(origin)) {
         callback(null, true);
       } else {
         callback(new Error('CORS not allowed'));

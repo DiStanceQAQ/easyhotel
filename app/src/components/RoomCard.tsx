@@ -1,7 +1,10 @@
 import { Image } from 'expo-image';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme/tokens';
+
+const FALLBACK_ROOM_IMAGE =
+  'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=80';
 
 type RoomCardProps = {
   name: string;
@@ -43,6 +46,11 @@ function RoomCardBase({
     [areaM2, breakfast, maxGuests],
   );
   const showQuantityStepper = typeof quantity === 'number' && (onIncrease || onDecrease);
+  const [imageUri, setImageUri] = useState(coverImage || FALLBACK_ROOM_IMAGE);
+
+  useEffect(() => {
+    setImageUri(coverImage || FALLBACK_ROOM_IMAGE);
+  }, [coverImage]);
 
   return (
     <Pressable
@@ -55,13 +63,16 @@ function RoomCardBase({
     >
       <Image
         source={{
-          uri:
-            coverImage ||
-            'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=80',
+          uri: imageUri,
         }}
         style={styles.image}
         contentFit="cover"
         transition={120}
+        onError={() => {
+          if (imageUri !== FALLBACK_ROOM_IMAGE) {
+            setImageUri(FALLBACK_ROOM_IMAGE);
+          }
+        }}
       />
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>

@@ -53,10 +53,16 @@ import {
   normalizeCityName,
   selectDateRange,
 } from './shared/filter-utils';
+import { withTimeout } from '../utils/timeout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Search'>;
 const MAX_HERO_BANNERS = 5;
 const LOCATION_BANNER_AUTO_HIDE_MS = 4800;
+const LOCATION_BALANCED_TIMEOUT_MS = 7000;
+const LOCATION_LOW_TIMEOUT_MS = 4000;
+const LOCATION_LOCAL_REVERSE_TIMEOUT_MS = 2500;
+const LOCATION_REMOTE_REVERSE_TIMEOUT_MS = 4000;
+const LAST_KNOWN_POSITION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 type LocationStatus = 'idle' | 'locating' | 'success' | 'denied' | 'error';
 
 function pickRandomBanners(items: BannerItem[], maxCount: number): BannerItem[] {
@@ -251,8 +257,13 @@ export function SearchScreen({ navigation }: Props) {
           return;
         }
 
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status !== 'granted') {
+        const grantedPermission = await Location.getForegroundPermissionsAsync();
+        let permissionStatus = grantedPermission.status;
+        if (permissionStatus !== 'granted') {
+          const requestedPermission = await Location.requestForegroundPermissionsAsync();
+          permissionStatus = requestedPermission.status;
+        }
+        if (permissionStatus !== 'granted') {
           setLocationStatus('denied');
           showLocationBanner('未开启定位权限，请手动选择城市', true);
           return;
@@ -269,29 +280,38 @@ export function SearchScreen({ navigation }: Props) {
           return;
         }
 
-        if (Platform.OS === 'android') {
-          try {
-            await Location.enableNetworkProviderAsync();
-          } catch {
-            // Ignore user cancellation, keep best-effort positioning flow.
-          }
+        if (Platform.OS === 'android' && providerStatus.networkAvailable === false) {
+          // Best effort only. Do not block positioning flow.
+          void Location.enableNetworkProviderAsync().catch(() => {
+            // Ignore user cancellation.
+          });
         }
 
         let position: Location.LocationObject | null = null;
+        const requestCurrentPosition = (accuracy: Location.Accuracy, timeoutMs: number) =>
+          withTimeout(
+            Location.getCurrentPositionAsync({
+              accuracy,
+              mayShowUserSettingsDialog: false,
+            }),
+            timeoutMs,
+            '定位超时',
+          );
+
         try {
-          position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-            mayShowUserSettingsDialog: true,
-          });
+          position = await requestCurrentPosition(
+            Location.Accuracy.Balanced,
+            LOCATION_BALANCED_TIMEOUT_MS,
+          );
         } catch (positionError) {
           try {
-            position = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Low,
-              mayShowUserSettingsDialog: true,
-            });
+            position = await requestCurrentPosition(
+              Location.Accuracy.Low,
+              LOCATION_LOW_TIMEOUT_MS,
+            );
           } catch {
             const fallback = await Location.getLastKnownPositionAsync({
-              maxAge: 24 * 60 * 60 * 1000,
+              maxAge: LAST_KNOWN_POSITION_MAX_AGE_MS,
             });
 
             if (!fallback) {
@@ -311,11 +331,16 @@ export function SearchScreen({ navigation }: Props) {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
+        setLocation(coords.latitude, coords.longitude);
 
         let localCity: string | null = null;
         let localNearby: string | null = null;
         try {
-          const reverseList = await Location.reverseGeocodeAsync(coords);
+          const reverseList = await withTimeout(
+            Location.reverseGeocodeAsync(coords),
+            LOCATION_LOCAL_REVERSE_TIMEOUT_MS,
+            '逆地理超时',
+          );
           const nearest = reverseList[0];
           if (nearest) {
             localCity = nearest.city ?? nearest.subregion ?? nearest.region ?? null;
@@ -325,38 +350,48 @@ export function SearchScreen({ navigation }: Props) {
           // Ignore local reverse-geocode failures and fallback to remote response.
         }
 
-        let remoteNearby: string | null = null;
-        let matchedCity = mapToKnownCity(localCity);
-        try {
-          const remote = await fetchLocationReverse(coords.latitude, coords.longitude);
-          const remoteCity = mapToKnownCity(remote.city);
-          if (remoteCity) {
-            matchedCity = remoteCity;
-          }
-          remoteNearby = remote.nearby ?? remote.district ?? remote.formattedAddress;
-        } catch {
-          // Ignore remote failures and keep local reverse-geocode results.
-        }
-
-        setLocation(coords.latitude, coords.longitude);
+        const matchedCity = mapToKnownCity(localCity);
 
         if ((trigger === 'manual' || !manualCitySelected) && matchedCity) {
           setCity(matchedCity);
         }
 
         const resolvedCity = matchedCity ?? city ?? '当前位置';
-        const nearby = remoteNearby ?? localNearby;
+        const nearby = localNearby;
         const message = nearby
           ? `已定位到 ${resolvedCity}，${nearby}附近`
           : `已定位到 ${resolvedCity}`;
 
         setLocationStatus('success');
         showLocationBanner(message);
+
+        void (async () => {
+          try {
+            const remote = await withTimeout(
+              fetchLocationReverse(coords.latitude, coords.longitude),
+              LOCATION_REMOTE_REVERSE_TIMEOUT_MS,
+              '逆地理超时',
+            );
+            const remoteCity = mapToKnownCity(remote.city);
+            const remoteNearby = remote.nearby ?? remote.district ?? remote.formattedAddress;
+
+            if ((trigger === 'manual' || !manualCitySelected) && remoteCity) {
+              setCity(remoteCity);
+            }
+
+            const finalCity = remoteCity ?? matchedCity ?? city ?? '当前位置';
+            if (remoteNearby) {
+              showLocationBanner(`已定位到 ${finalCity}，${remoteNearby}附近`);
+            }
+          } catch {
+            // Ignore remote reverse-geocode failures.
+          }
+        })();
       } catch (error) {
         const reason = getErrorMessage(error);
         console.warn(`[SearchScreen] locateCurrentCity failed: ${reason}`);
         setLocationStatus('error');
-        if (reason.includes('Current location is unavailable')) {
+        if (reason.includes('Current location is unavailable') || reason.includes('定位超时')) {
           showLocationBanner('当前无法获取坐标，请开启高精度定位或先在地图App定位一次', true);
         } else {
           showLocationBanner('定位失败，请手动选择城市', true);

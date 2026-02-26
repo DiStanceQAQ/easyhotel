@@ -31,9 +31,11 @@ import { HotelListItem, SortType } from '../types/api';
 import { getNightCount, isDateRangeValid } from '../utils/date';
 import { shouldLoadNextPage } from '../utils/pagination';
 import { buildHotelListQuery, serializeQuery } from '../utils/query';
+import { withTimeout } from '../utils/timeout';
 import { FALLBACK_TAGS, PAGE_SIZE, SORT_LABEL_MAP, SORT_OPTIONS } from './hotel-list/constants';
 import { ListFilterSheet } from './hotel-list/components/ListFilterSheet';
 import { ListHeaderBar } from './hotel-list/components/ListHeaderBar';
+import { normalizeRemoteMediaUrl } from './hotel-detail/utils';
 import { CalendarSheet } from './search/components/CalendarSheet';
 import { GuestSheet } from './search/components/GuestSheet';
 import { searchStyles as searchSheetStyles } from './search/styles';
@@ -48,6 +50,11 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HotelList'>;
 const HOTEL_LIST_DRAW_DISTANCE = 1200;
+const LOCATION_BALANCED_TIMEOUT_MS = 7000;
+const LOCATION_LOW_TIMEOUT_MS = 4000;
+const LOCATION_LOCAL_REVERSE_TIMEOUT_MS = 2500;
+const LOCATION_REMOTE_REVERSE_TIMEOUT_MS = 4000;
+const LAST_KNOWN_POSITION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 type ActivePanel = 'none' | 'search' | 'sort' | 'filter';
 
 export function HotelListScreen({ navigation, route }: Props) {
@@ -211,7 +218,7 @@ export function HotelListScreen({ navigation, route }: Props) {
         city={item.city}
         address={item.address}
         distanceMeters={item.distanceMeters}
-        coverImage={item.coverImage}
+        coverImage={normalizeRemoteMediaUrl(item.coverImage)}
         minPrice={item.minPrice}
         description={item.description}
         tags={item.tags}
@@ -358,34 +365,62 @@ export function HotelListScreen({ navigation, route }: Props) {
       return null;
     }
 
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (permission.status !== 'granted') {
+    const grantedPermission = await Location.getForegroundPermissionsAsync();
+    let permissionStatus = grantedPermission.status;
+    if (permissionStatus !== 'granted') {
+      const requestedPermission = await Location.requestForegroundPermissionsAsync();
+      permissionStatus = requestedPermission.status;
+    }
+    if (permissionStatus !== 'granted') {
       Alert.alert('需要定位权限', '请允许应用访问定位后重试');
       return null;
     }
 
-    if (Platform.OS === 'android') {
-      try {
-        await Location.enableNetworkProviderAsync();
-      } catch {
-        // Keep best-effort flow when user does not adjust provider settings.
-      }
+    const providerStatus = await Location.getProviderStatusAsync();
+    if (
+      Platform.OS === 'android' &&
+      providerStatus.gpsAvailable === false &&
+      providerStatus.networkAvailable === false
+    ) {
+      Alert.alert('定位失败', '当前设备定位不可用，请检查系统定位设置');
+      return null;
     }
+
+    if (Platform.OS === 'android' && providerStatus.networkAvailable === false) {
+      // Best effort only. Do not block positioning flow.
+      void Location.enableNetworkProviderAsync().catch(() => {
+        // Ignore user cancellation.
+      });
+    }
+
+    const requestCurrentPosition = (accuracy: Location.Accuracy, timeoutMs: number) =>
+      withTimeout(
+        Location.getCurrentPositionAsync({
+          accuracy,
+          mayShowUserSettingsDialog: false,
+        }),
+        timeoutMs,
+        '定位超时',
+      );
 
     let position: Location.LocationObject | null = null;
     try {
-      position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        mayShowUserSettingsDialog: true,
-      });
+      position = await requestCurrentPosition(
+        Location.Accuracy.Balanced,
+        LOCATION_BALANCED_TIMEOUT_MS,
+      );
     } catch {
-      position = await Location.getLastKnownPositionAsync({
-        maxAge: 24 * 60 * 60 * 1000,
-      });
+      try {
+        position = await requestCurrentPosition(Location.Accuracy.Low, LOCATION_LOW_TIMEOUT_MS);
+      } catch {
+        position = await Location.getLastKnownPositionAsync({
+          maxAge: LAST_KNOWN_POSITION_MAX_AGE_MS,
+        });
+      }
     }
 
     if (!position) {
-      Alert.alert('定位失败', '当前无法获取有效位置，请稍后重试');
+      Alert.alert('定位失败', '定位超时或无法获取有效位置，请稍后重试');
       return null;
     }
 
@@ -510,10 +545,15 @@ export function HotelListScreen({ navigation, route }: Props) {
       if (!coords) {
         return;
       }
+      setLocation(coords.latitude, coords.longitude);
 
       let localCity: string | null = null;
       try {
-        const reverseList = await Location.reverseGeocodeAsync(coords);
+        const reverseList = await withTimeout(
+          Location.reverseGeocodeAsync(coords),
+          LOCATION_LOCAL_REVERSE_TIMEOUT_MS,
+          '逆地理超时',
+        );
         const nearest = reverseList[0];
         if (nearest) {
           localCity = nearest.city ?? nearest.subregion ?? nearest.region ?? null;
@@ -522,19 +562,25 @@ export function HotelListScreen({ navigation, route }: Props) {
         // Keep remote reverse-geocode as fallback.
       }
 
-      let resolvedCity = normalizeCityName(localCity) || filters.city || '上海';
-      try {
-        const remote = await fetchLocationReverse(coords.latitude, coords.longitude);
-        const remoteCity = normalizeCityName(remote.city);
-        if (remoteCity) {
-          resolvedCity = remoteCity;
-        }
-      } catch {
-        // Keep local reverse-geocode results.
-      }
-
+      const localResolvedCity = normalizeCityName(localCity);
+      const resolvedCity = localResolvedCity || filters.city || '上海';
       setCity(resolvedCity);
-      setLocation(coords.latitude, coords.longitude);
+
+      void (async () => {
+        try {
+          const remote = await withTimeout(
+            fetchLocationReverse(coords.latitude, coords.longitude),
+            LOCATION_REMOTE_REVERSE_TIMEOUT_MS,
+            '逆地理超时',
+          );
+          const remoteCity = normalizeCityName(remote.city);
+          if (remoteCity && remoteCity !== resolvedCity) {
+            setCity(remoteCity);
+          }
+        } catch {
+          // Keep local reverse-geocode results.
+        }
+      })();
     } finally {
       setPanelLocating(false);
     }

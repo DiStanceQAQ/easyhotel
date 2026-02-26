@@ -59,8 +59,9 @@ export async function fetchHotelPriceCalendar(
   startDate?: string,
   days = 180,
 ): Promise<HotelPriceCalendarResult> {
+  const normalizedDays = Math.max(7, Math.min(365, Math.trunc(days || 180)));
   return getData<HotelPriceCalendarResult>(`/app/hotels/${hotelId}/price-calendar`, {
     ...(startDate ? { startDate } : {}),
-    days,
+    days: normalizedDays,
   });
 }

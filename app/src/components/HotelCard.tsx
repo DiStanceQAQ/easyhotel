@@ -1,7 +1,10 @@
 import { Image } from 'expo-image';
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme/tokens';
+
+const FALLBACK_HOTEL_IMAGE =
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=80';
 
 type HotelCardProps = {
   id: string;
@@ -68,18 +71,26 @@ function HotelCardBase({
   }, [description, tags]);
 
   const oldPrice = typeof minPrice === 'number' ? minPrice + 66 : null;
+  const [imageUri, setImageUri] = useState(coverImage || FALLBACK_HOTEL_IMAGE);
+
+  useEffect(() => {
+    setImageUri(coverImage || FALLBACK_HOTEL_IMAGE);
+  }, [coverImage]);
 
   return (
     <Pressable testID="hotel-card" onPress={handlePress} style={styles.card}>
       <Image
         source={{
-          uri:
-            coverImage ||
-            'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=80',
+          uri: imageUri,
         }}
         style={styles.cover}
         contentFit="cover"
         transition={180}
+        onError={() => {
+          if (imageUri !== FALLBACK_HOTEL_IMAGE) {
+            setImageUri(FALLBACK_HOTEL_IMAGE);
+          }
+        }}
       />
 
       <View style={styles.body}>

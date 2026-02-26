@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { Alert, Linking, Platform, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useIsFocused } from '@react-navigation/native';
 import { AppErrorState } from '../components/AppErrorState';
 import { AppLoading } from '../components/AppLoading';
 import { RoomCard } from '../components/RoomCard';
@@ -30,7 +31,9 @@ import { buildMarkedDates, getTodayDateString } from './search/utils';
 import { getNextGuestCount, selectDateRange } from './shared/filter-utils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HotelDetail'>;
-const LOW_PRICE_CALENDAR_DAYS = 420;
+const LOW_PRICE_CALENDAR_DAYS = 365;
+const ROOM_POLLING_INTERVAL_MS = 15 * 1000;
+const PRICE_CALENDAR_POLLING_INTERVAL_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const;
 const EMPTY_ROOMS: RoomItem[] = [];
@@ -102,6 +105,7 @@ function calculateDistanceMeters(
 export function HotelDetailScreen({ route, navigation }: Props) {
   const { hotelId } = route.params;
   const filters = useSearchFilters();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const setDates = useSearchStore((state) => state.setDates);
   const setGuestCounts = useSearchStore((state) => state.setGuestCounts);
@@ -128,12 +132,16 @@ export function HotelDetailScreen({ route, navigation }: Props) {
       `${filters.checkIn ?? ''}_${filters.checkOut ?? ''}_${filters.adultCount}_${filters.childCount}`,
     ),
     queryFn: () => fetchHotelRooms(hotelId, filters),
-    enabled: detailQuery.isSuccess,
+    enabled: detailQuery.isSuccess && isFocused,
+    refetchInterval: isFocused ? ROOM_POLLING_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
   });
   const priceCalendarQuery = useQuery({
     queryKey: queryKeys.roomPriceCalendar(hotelId, todayDate, LOW_PRICE_CALENDAR_DAYS),
     queryFn: () => fetchHotelPriceCalendar(hotelId, todayDate, LOW_PRICE_CALENDAR_DAYS),
-    enabled: detailQuery.isSuccess,
+    enabled: detailQuery.isSuccess && isFocused,
+    refetchInterval: isFocused ? PRICE_CALENDAR_POLLING_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
     staleTime: 10 * 60 * 1000,
   });
   const hotelTitle = detailQuery.data?.nameCn?.trim() || '酒店详情';
